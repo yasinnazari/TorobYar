@@ -1,40 +1,17 @@
 import json
 import pandas as pd
-from typing import Any
 from math import radians, sin, cos, sqrt, atan2
+from app.services.product_service import search_products_in_dataset
 
 
-def search_products(dataset: dict, query: str, limit=5) -> dict:
-   query = query.strip()
-
-   if not query:
-      return {"query": query, "count": 0, "results": []}
-
+def search_products(dataset, query, limit=5):
    products = dataset["products"]
 
-   mask = products["persian_title"].str.contains(query, case=False, regex=False, na=False)
-
-   matches = products.loc[
-      mask,
-      [
-         "product_id",
-         "persian_title",
-         "brand_name",
-         "category_name",
-         "model",
-         "image_urls",
-      ],
-   ].head(max(1, min(limit, 20)))
-
-   matches = matches.astype(object).where(matches.notna(), None)
-
-   results = matches.to_dict(orient="records")
-
-   return {
-      "query": query,
-      "count": len(results),
-      "results": results,
-   }
+   return search_products_in_dataset(
+      products=products,
+      query=query,
+      limit=limit,
+   )
 
 
 def get_product_offers(dataset: dict, product_id: str, limit=5) -> dict:

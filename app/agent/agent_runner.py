@@ -12,7 +12,8 @@ from app.agent.tools import (
    find_payment_shops as find_payment_shops_data,
 )
 
-load_dotenv()
+load_dotenv('.env')
+
 logger = logging.getLogger(__name__)
 
 
