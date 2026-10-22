@@ -4,11 +4,7 @@ import requests
 from typing import Any
 from dotenv import load_dotenv
 from app.agent.prompts import SYSTEM_PROMPT
-from app.agent.tools import (
-   search_products,
-   get_product_offers,
-   find_payment_shops,
-)
+from app.agent.tools import search_products, get_product_offers, find_payment_shops
 
 load_dotenv('.env')
 
@@ -129,7 +125,7 @@ def run_agent(
 
    tools_used = []
 
-   # Kill tool calling (after 5 attempt)
+   # -------- Kill tool calling (after 5 attempt) -------
    for _ in range(5):
       response = requests.post(
          OPENROUTER_URL,

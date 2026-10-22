@@ -1,6 +1,5 @@
-
 import requests
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.agent.agent_runner import run_agent
@@ -17,7 +16,7 @@ class ChatRequest(BaseModel):
 
 
 @router.post("/chat")
-def chat(request: Request, body: ChatRequest):
+def chat(request, body):
    try:
       result = run_agent(dataset=request.app.state.dataset, user_message=body.message.strip(), history=body.history)
 

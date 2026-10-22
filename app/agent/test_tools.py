@@ -1,11 +1,6 @@
 import json
 from app.repositories.dataset import load_dataset
-from app.agent.tools import (
-   search_products,
-   get_product_offers,
-   find_payment_shops,
-   find_nearby_product_shops
-)
+from app.agent.tools import search_products, get_product_offers, find_payment_shops, find_nearby_product_shops
 
 def main():
    dataset = load_dataset()
@@ -13,7 +8,7 @@ def main():
 
    shops = dataset["shops"]
 
-   print("\n--- PAYMENT OPTIONS: RAW VALUES ---")
+   print("\n-------------------------- PAYMENT OPTIONS: RAW VALUES ---")
    print(
       shops["payment_options"]
       .value_counts(dropna=False)
@@ -53,7 +48,6 @@ def main():
 
    product_id = search_result["results"][0]["product_id"]
 
-   # ابزار دوم: پیشنهادهای فروش
    offers_result = get_product_offers(
       dataset,
       product_id,
@@ -91,7 +85,6 @@ def main():
          offer["address"],
       )
 
-   # ابزار سوم: بررسی گزینه‌های پرداخت
    payment_result = find_payment_shops(
       dataset,
       product_id,
@@ -99,7 +92,7 @@ def main():
       channel="in_person",
    )
 
-   print("\n--- IN-PERSON PAYMENT OPTIONS ---")
+   print("--------------------- IN-PERSON PAYMENT OPTIONS ---")
    print("Count:", payment_result["count"])
 
    for offer in payment_result["results"]:
