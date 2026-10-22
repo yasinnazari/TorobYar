@@ -4,9 +4,7 @@ from typing import Any
 from math import radians, sin, cos, sqrt, atan2
 
 
-def search_products(dataset: dict[str, pd.DataFrame], query: str, limit: int = 5) -> dict[str, Any]:
-   """Search products by Persian title."""
-
+def search_products(dataset: dict, query: str, limit=5) -> dict:
    query = query.strip()
 
    if not query:
@@ -14,12 +12,7 @@ def search_products(dataset: dict[str, pd.DataFrame], query: str, limit: int = 5
 
    products = dataset["products"]
 
-   mask = products["persian_title"].str.contains(
-      query,
-      case=False,
-      regex=False,
-      na=False,
-   )
+   mask = products["persian_title"].str.contains(query, case=False, regex=False, na=False)
 
    matches = products.loc[
       mask,
@@ -33,9 +26,7 @@ def search_products(dataset: dict[str, pd.DataFrame], query: str, limit: int = 5
       ],
    ].head(max(1, min(limit, 20)))
 
-   matches = matches.astype(object).where(
-      matches.notna(), None
-   )
+   matches = matches.astype(object).where(matches.notna(), None)
 
    results = matches.to_dict(orient="records")
 
@@ -46,20 +37,12 @@ def search_products(dataset: dict[str, pd.DataFrame], query: str, limit: int = 5
    }
 
 
-def get_product_offers(
-   dataset: dict[str, pd.DataFrame],
-   product_id: str,
-   limit: int = 5,
-) -> dict[str, Any]:
-   """Get price offers and shop details for a product."""
-
+def get_product_offers(dataset: dict, product_id: str, limit=5) -> dict:
    products = dataset["products"]
    offers = dataset["offers"]
    shops = dataset["shops"]
 
-   product_rows = products[
-      products["product_id"] == product_id
-   ]
+   product_rows = products[products["product_id"] == product_id]
 
    if product_rows.empty:
       return {
@@ -69,9 +52,7 @@ def get_product_offers(
          "results": [],
       }
 
-   product_offers = offers[
-      offers["product_id"] == product_id
-   ].copy()
+   product_offers = offers[offers["product_id"] == product_id].copy()
 
    shop_columns = [
       "shop_id",
@@ -110,13 +91,9 @@ def get_product_offers(
       "payment_options",
    ]
 
-   results = product_offers[result_columns].head(
-      max(1, min(limit, 20))
-   )
+   results = product_offers[result_columns].head(max(1, min(limit, 20)))
 
-   results = results.astype(object).where(
-      results.notna(), None
-   )
+   results = results.astype(object).where(results.notna(), None)
 
    return {
       "product_id": product_id,
@@ -127,21 +104,7 @@ def get_product_offers(
    }
 
 
-
-def find_payment_shops(
-   dataset: dict[str, pd.DataFrame],
-   product_id: str,
-   limit: int = 10,
-   channel: str = "in_person",
-) -> dict[str, Any]:
-   """
-   Find product offers from shops with declared payment options.
-
-   channel:
-      in_person -> explicitly declared in-person payment
-      unknown   -> payment channel is unknown
-      any       -> either of the above
-   """
+def find_payment_shops(dataset: dict, product_id: str, limit=10, channel="in_person") -> dict:
    if channel not in {"in_person", "unknown", "any"}:
       return {
          "error": "invalid_channel",
@@ -166,10 +129,7 @@ def find_payment_shops(
          "results": [],
       }
 
-   # Get all offers for this product, not just the first 20.
-   product_offers = offers[
-      offers["product_id"] == product_id
-   ].copy()
+   product_offers = offers[offers["product_id"] == product_id].copy()
 
    shop_columns = [
       "shop_id",
@@ -197,6 +157,7 @@ def find_payment_shops(
 
       try:
          options = json.loads(raw_options)
+
       except (json.JSONDecodeError, TypeError):
          continue
 
@@ -212,15 +173,15 @@ def find_payment_shops(
          option_channel = option.get("channel")
 
          if channel == "any":
-               matches = option_channel in {
-                  "in_person",
-                  "unknown",
-               }
+            matches = option_channel in {
+               "in_person",
+               "unknown",
+            }
          else:
-               matches = option_channel == channel
+            matches = option_channel == channel
 
          if matches:
-               matching_options.append(option)
+            matching_options.append(option)
 
       if not matching_options:
          continue
@@ -236,7 +197,6 @@ def find_payment_shops(
          else "unknown"
       )
 
-      # Avoid NaN values in the JSON response.
       item = {
          key: None if pd.isna(value) else value
          for key, value in item.items()
@@ -244,7 +204,7 @@ def find_payment_shops(
       } | {
          "payment_options": matching_options,
          "payment_channel_status": item[
-               "payment_channel_status"
+            "payment_channel_status"
          ],
       }
 
@@ -269,20 +229,14 @@ def find_payment_shops(
       "results": results,
       "price_is_live": False,
       "note": (
-         "گزینه پرداخت از داده‌های ثبت‌شده فروشگاه استخراج شده است؛ "
-         "فعال بودن اعتبار یا امکان خرید اقساطی باید تأیید شود."
+         "گزینه پرداخت از داده‌های ثبت‌شده فروشگاه استخراج شده است"
+         "فعال بودن اعتبار یا امکان خرید اقساطی باید تأیید شود"
       ),
    }
 
 
 
-def calculate_distance_km(
-   lat1: float,
-   lon1: float,
-   lat2: float,
-   lon2: float,
-) -> float:
-   """Calculate approximate straight-line distance in kilometers."""
+def calculate_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
    earth_radius_km = 6371.0
 
    dlat = radians(lat2 - lat1)
@@ -295,29 +249,17 @@ def calculate_distance_km(
       * sin(dlon / 2) ** 2
    )
 
-   return earth_radius_km * 2 * atan2(
-      sqrt(a),
-      sqrt(1 - a),
-   )
+   return earth_radius_km * 2 * atan2(sqrt(a), sqrt(1 - a),)
 
 
 def find_nearby_product_shops(
-   dataset: dict[str, pd.DataFrame],
-   product_id: str,
-   user_lat: float,
-   user_lon: float,
-   radius_km: float = 5.0,
-   limit: int = 10,
-) -> dict[str, Any]:
-   """Find shops selling a product within a radius, nearest first."""
+   dataset: dict, product_id: str, user_lat: float, user_lon: float, radius_km: float = 5.0, limit: int = 10) -> dict:
 
    products = dataset["products"]
    offers = dataset["offers"]
    shops = dataset["shops"]
 
-   product = products[
-      products["product_id"] == product_id
-   ]
+   product = products[products["product_id"] == product_id]
 
    if product.empty:
       return {
@@ -326,9 +268,7 @@ def find_nearby_product_shops(
          "results": [],
       }
 
-   product_offers = offers[
-      offers["product_id"] == product_id
-   ].copy()
+   product_offers = offers[offers["product_id"] == product_id].copy()
 
    shop_columns = [
       "shop_id",
@@ -340,11 +280,7 @@ def find_nearby_product_shops(
       "payment_options",
    ]
 
-   results = product_offers.merge(
-      shops[shop_columns],
-      on="shop_id",
-      how="left",
-   )
+   results = product_offers.merge(shops[shop_columns], on="shop_id", how="left")
 
    results["lat"] = pd.to_numeric(
       results["lat"], errors="coerce"

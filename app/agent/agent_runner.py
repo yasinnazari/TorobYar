@@ -20,14 +20,20 @@ MAX_TOOL_CALLS = 5
 def build_agent(dataset: dict):
    @tool
    def search_products(query: str, limit=5) -> dict:
+      """Search the product dataset by Persian product title or keywords"""
+
       return search_products_data(dataset, query=query, limit=limit)
 
    @tool
-   def get_product_offers(product_id: str, limit: int = 5) -> dict:
+   def get_product_offers(product_id: str, limit=5) -> dict:
+      """Get recorded prices and store details for an exact product_id returned by search_products"""
+
       return get_product_offers_data(dataset, product_id=product_id, limit=limit)
 
    @tool
    def find_payment_shops(product_id: str, limit=10, channel="in_person") -> dict:
+      """Find recorded payment options for sellers of a product. Recorded options do not guarantee installment eligibility"""
+
       return find_payment_shops_data(dataset, product_id=product_id, limit=limit, channel=channel)
 
    api_key = os.getenv("OPENROUTER_API_KEY")
