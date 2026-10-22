@@ -147,7 +147,8 @@ def run_agent(dataset, user_message, history=None, shopping_state=None, latitude
       raise RuntimeError("OPENROUTER_API_KEY & OPENROUTER_MODEL must be configured")
 
    state = dict(shopping_state or {})
-   agent = build_agent(dataset, state)
+
+   agent = build_agent(dataset, state, latitude, longitude, radius_km)
 
    messages = []
 
