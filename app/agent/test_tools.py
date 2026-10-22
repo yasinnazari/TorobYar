@@ -108,14 +108,9 @@ def main():
          for option in offer["payment_options"]
       ]
 
-      print(
-         "Price:", offer["price_toman"],
-         "| Shop:", offer["name"],
-         "| Providers:", providers,
-         "| Address:", offer["address"],
-      )
+      print(f"Price: {offer["price_toman"]} | Shop: {offer["name"]} | Providers: {providers} | Address:", offer["address"])
 
-   print("\n--- INSTALLMENT OPTIONS ---")
+   print("\n--- Payment Result Counts ---")
    print(payment_result["count"])
 
 
