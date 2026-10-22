@@ -1,35 +1,56 @@
-import requests
+import uuid
+import logging
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
-
 from app.agent.agent_runner import run_agent
+from app.services.conversation_memory import load_conversation, save_conversation
 
 router = APIRouter(
    prefix="/api/v1/assistant",
    tags=["Assistant"],
 )
 
+logger = logging.getLogger(__name__)
+
 
 class ChatRequest(BaseModel):
    message: str = Field(min_length=1, max_length=2000)
-   history: list[dict[str, str]] = Field(
-      default_factory=list,
-      max_length=8,
-   )
+   conversation_id: str | None = None
 
 
 @router.post("/chat")
 def chat(request: Request, body: ChatRequest):
+   message = body.message.strip()
+
+   if not message:
+      raise HTTPException(status_code=422, detail="پیام نمی‌تواند خالی باشد")
+
+   conversation_id = body.conversation_id or str(uuid.uuid4())
+
    try:
-      result = run_agent(dataset=request.app.state.dataset, user_message=body.message.strip(), history=body.history)
+      conversation = load_conversation(conversation_id)
+
+      result = run_agent(
+         dataset=request.app.state.dataset,
+         user_message=message,
+         history=conversation["messages"],
+         shopping_state=conversation["shopping_state"],
+      )
+
+      updated_messages = conversation["messages"] + [
+         {"role": "user", "content": message},
+         {"role": "assistant", "content": result["reply"]},
+      ]
+
+      save_conversation(conversation_id=conversation_id, messages=updated_messages, shopping_state=result["shopping_state"])
 
       return {
+         "conversation_id": conversation_id,
          "reply": result["reply"],
          "tools_used": result["tools_used"],
+         "shopping_state": result["shopping_state"],
       }
 
-   except requests.RequestException:
-      raise HTTPException(status_code=502, detail="خطایی در برقراری ارتباط با مدل پیش آمد")
-
    except RuntimeError:
-      raise HTTPException(status_code=502, detail="مشکلی در اجرای ترب‌یار به وجود آمد")
+      logger.exception("Assistant Request Failed")
+      raise HTTPException(status_code=502, detail="اجرای ترب یار با مشکل مواجه شد")

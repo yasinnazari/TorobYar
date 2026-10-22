@@ -31,3 +31,5 @@ data/*.csv
 data/*
 ./data
 */.data
+
+data/conversations.sqlite3
