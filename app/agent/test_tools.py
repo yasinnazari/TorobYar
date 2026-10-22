@@ -5,7 +5,6 @@ from app.agent.tools import search_products, get_product_offers, find_payment_sh
 def main():
    dataset = load_dataset()
 
-
    shops = dataset["shops"]
 
    print("\n-------------------------- PAYMENT OPTIONS: RAW VALUES ---")
@@ -16,7 +15,7 @@ def main():
       .to_string()
    )
 
-   print("\n--- NON-EMPTY PAYMENT OPTIONS ---")
+   print("\n---~!!!!!!!!!!!!--------- NON-EMPTY PAYMENT OPTIONS ---")
    non_empty = shops[
       shops["payment_options"].notna()
       & shops["payment_options"].str.strip().ne("")
@@ -28,12 +27,7 @@ def main():
    for _, shop in non_empty.head(10).iterrows():
       print(f"Shop: {shop["name"]} | Payment:", repr(shop["payment_options"]))
 
-   # ابزار اول: جست‌وجوی محصول
-   search_result = search_products(
-      dataset,
-      query="کابل افشان",
-      limit=3,
-   )
+   search_result = search_products(dataset, query="کابل", limit=3)
 
    print("\n--- PRODUCT SEARCH ---")
    for product in search_result["results"]:

@@ -9,9 +9,8 @@ async def lifespan(app: FastAPI):
    app.state.dataset = load_dataset()
    yield
 
-
 app = FastAPI(
-   title="Torob Yar | Your Shopping Assistant",
+   title="TorobYar | Dastyar Kharid Shoma",
    version="0.0.1",
    lifespan=lifespan,
 )
