@@ -1,2 +1,9 @@
 openai>=1.0.0
 python-dotenv>=1.0.0
+fastapi
+uvicorn[standard]
+pandas
+python-dotenv
+langchain
+langchain-openrouter
+openai
