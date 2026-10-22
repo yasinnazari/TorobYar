@@ -1,8 +1,5 @@
-
 from pathlib import Path
-
 import pandas as pd
-
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = BASE_DIR / "data"
@@ -21,6 +18,7 @@ def load_dataset() -> dict[str, pd.DataFrame]:
       ],
       dtype="string",
    )
+
 
    offers = pd.read_csv(
       DATA_DIR / "offers.csv",
@@ -53,15 +51,21 @@ def load_dataset() -> dict[str, pd.DataFrame]:
       dtype="string",
    )
 
+   for column in ["lat", "lon"]:
+      shops[column] = pd.to_numeric(
+         shops[column],
+         errors="coerce",
+      )
+
    # Convert prices to numeric values.
    offers["price_toman"] = pd.to_numeric(
       offers["price_toman"],
       errors="coerce",
    )
 
-   print(f"Loaded {len(products):,} products")
-   print(f"Loaded {len(offers):,} offers")
-   print(f"Loaded {len(shops):,} shops")
+   print(f"Loaded {len(products):} products")
+   print(f"Loaded {len(offers):} offers")
+   print(f"Loaded {len(shops):} shops")
 
    return {
       "products": products,
