@@ -1,6 +1,7 @@
 import json
-from typing import Any
 import pandas as pd
+from typing import Any
+from math import radians, sin, cos, sqrt, atan2
 
 
 def search_products(dataset: dict[str, pd.DataFrame], query: str, limit: int = 5) -> dict[str, Any]:
@@ -271,4 +272,145 @@ def find_payment_shops(
          "گزینه پرداخت از داده‌های ثبت‌شده فروشگاه استخراج شده است؛ "
          "فعال بودن اعتبار یا امکان خرید اقساطی باید تأیید شود."
       ),
+   }
+
+
+
+def calculate_distance_km(
+   lat1: float,
+   lon1: float,
+   lat2: float,
+   lon2: float,
+) -> float:
+   """Calculate approximate straight-line distance in kilometers."""
+   earth_radius_km = 6371.0
+
+   dlat = radians(lat2 - lat1)
+   dlon = radians(lon2 - lon1)
+
+   a = (
+      sin(dlat / 2) ** 2
+      + cos(radians(lat1))
+      * cos(radians(lat2))
+      * sin(dlon / 2) ** 2
+   )
+
+   return earth_radius_km * 2 * atan2(
+      sqrt(a),
+      sqrt(1 - a),
+   )
+
+
+def find_nearby_product_shops(
+   dataset: dict[str, pd.DataFrame],
+   product_id: str,
+   user_lat: float,
+   user_lon: float,
+   radius_km: float = 5.0,
+   limit: int = 10,
+) -> dict[str, Any]:
+   """Find shops selling a product within a radius, nearest first."""
+
+   products = dataset["products"]
+   offers = dataset["offers"]
+   shops = dataset["shops"]
+
+   product = products[
+      products["product_id"] == product_id
+   ]
+
+   if product.empty:
+      return {
+         "error": "product_not_found",
+         "count": 0,
+         "results": [],
+      }
+
+   product_offers = offers[
+      offers["product_id"] == product_id
+   ].copy()
+
+   shop_columns = [
+      "shop_id",
+      "name",
+      "address",
+      "location_label",
+      "lat",
+      "lon",
+      "payment_options",
+   ]
+
+   results = product_offers.merge(
+      shops[shop_columns],
+      on="shop_id",
+      how="left",
+   )
+
+   results["lat"] = pd.to_numeric(
+      results["lat"], errors="coerce"
+   )
+   results["lon"] = pd.to_numeric(
+      results["lon"], errors="coerce"
+   )
+   results["price_toman"] = pd.to_numeric(
+      results["price_toman"], errors="coerce"
+   )
+
+   results = results.dropna(subset=["lat", "lon"]).copy()
+
+   if results.empty:
+      return {
+         "product_id": product_id,
+         "product_title": product.iloc[0]["persian_title"],
+         "count": 0,
+         "results": [],
+         "note": "برای این محصول مختصات فروشگاه معتبری پیدا نشد.",
+      }
+
+   results["distance_km"] = results.apply(
+      lambda row: calculate_distance_km(
+         user_lat,
+         user_lon,
+         row["lat"],
+         row["lon"],
+      ),
+      axis=1,
+   )
+
+   results = results[
+      results["distance_km"] <= max(0, radius_km)
+   ]
+
+   results = results.sort_values(
+      ["distance_km", "price_toman"],
+      ascending=[True, True],
+      na_position="last",
+   ).head(max(1, min(limit, 50)))
+
+   results = results.astype(object).where(
+      results.notna(), None
+   )
+
+   return {
+      "product_id": product_id,
+      "product_title": product.iloc[0]["persian_title"],
+      "radius_km": radius_km,
+      "count": len(results),
+      "results": results[
+         [
+               "offer_id",
+               "shop_id",
+               "seller_title",
+               "price_toman",
+               "name",
+               "address",
+               "location_label",
+               "lat",
+               "lon",
+               "distance_km",
+               "payment_options",
+         ]
+      ].to_dict(orient="records"),
+      "price_is_live": False,
+      "distance_type": "straight_line",
    }
