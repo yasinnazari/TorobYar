@@ -1,5 +1,6 @@
 import pandas as pd
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
+from app.services.product_service import search_products_in_dataset
 
 router = APIRouter(
    prefix="/api/v1/products",
@@ -8,46 +9,12 @@ router = APIRouter(
 
 
 @router.get("/search")
-def search_products(request, q=Query(min_length=1, max_length=100), limit=Query(default=10, ge=1, le=50)):
+def search_products(request: Request, q=Query(min_length=1, max_length=100), limit=Query(default=10, ge=1, le=50)):
    products = request.app.state.dataset["products"]
 
-   query = q.strip()
+   return search_products_in_dataset(products=products, query=q, limit=limit)
 
-   if not query:
-      return {
-         "query": q,
-         "count": 0,
-         "results": [],
-      }
 
-   mask = products["persian_title"].str.contains(
-      query,
-      case=False,
-      regex=False,
-      na=False,
-   )
-
-   results = products.loc[
-      mask,
-      [
-         "product_id",
-         "persian_title",
-         "brand_name",
-         "category_name",
-         "model",
-         "image_urls",
-      ],
-   ].head(limit)
-
-   results = results.astype(object).where(results.notna(), None)
-
-   records = results.to_dict(orient="records")
-
-   return {
-      "query": q,
-      "count": len(records),
-      "results": records,
-   }
 
 @router.get("/{product_id}/offers")
 def get_product_offers(request, product_id, limit = Query(default=20, ge=1, le=100)):
