@@ -1,14 +1,10 @@
-
-import json
 import os
+import json
 import logging
-from typing import Any
-
 from dotenv import load_dotenv
-from langchain.agents import create_agent
 from langchain.tools import tool
+from langchain.agents import create_agent
 from langchain_openrouter import ChatOpenRouter
-
 from app.agent.prompts import SYSTEM_PROMPT, MEMORY_PROMPT
 from app.agent.tools import (
    search_products as search_products_data,
