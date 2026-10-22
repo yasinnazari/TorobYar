@@ -4,6 +4,7 @@ from app.agent.tools import (
    search_products,
    get_product_offers,
    find_payment_shops,
+   find_nearby_product_shops
 )
 
 def main():
@@ -58,6 +59,29 @@ def main():
       product_id,
       limit=5,
    )
+
+   nearby = find_nearby_product_shops(
+      dataset=dataset,
+      product_id=product_id,
+      user_lat=35.7000,
+      user_lon=51.4200,
+      radius_km=10,
+      limit=10,
+   )
+
+   print("\n--- NEARBY SHOPS ---")
+   print("Count:", nearby["count"])
+
+   for shop in nearby["results"]:
+      print(
+         shop["distance_km"],
+         "km |",
+         shop["price_toman"],
+         "Toman |",
+         shop["name"],
+         "|",
+         shop["address"],
+      )
 
    print("\n--- PRODUCT OFFERS ---")
    for offer in offers_result["results"]:
