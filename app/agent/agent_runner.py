@@ -1,11 +1,15 @@
+
 import json
 import os
+import logging
 from typing import Any
+
 from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain.tools import tool
 from langchain_openrouter import ChatOpenRouter
-from app.agent.prompts import SYSTEM_PROMPT
+
+from app.agent.prompts import SYSTEM_PROMPT, MEMORY_PROMPT
 from app.agent.tools import (
    search_products as search_products_data,
    get_product_offers as get_product_offers_data,
@@ -13,65 +17,118 @@ from app.agent.tools import (
 )
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
-MAX_TOOL_CALLS = 5
 
-
-def build_agent(dataset: dict):
+def build_agent(dataset: dict, shopping_state: dict):
    @tool
-   def search_products(query: str, limit=5) -> dict:
-      """Search the product dataset by Persian product title or keywords"""
+   def search_products(query: str, limit: int = 5) -> dict:
+      """Search products by Persian product title or keywords"""
 
       return search_products_data(dataset, query=query, limit=limit)
 
    @tool
-   def get_product_offers(product_id: str, limit=5) -> dict:
-      """Get recorded prices and store details for an exact product_id returned by search_products"""
+   def get_product_offers(product_id: str, limit: int = 5) -> dict:
+      """Get recorded prices and shop details for a product ID returned by product search"""
 
       return get_product_offers_data(dataset, product_id=product_id, limit=limit)
 
    @tool
    def find_payment_shops(product_id: str, limit=10, channel="in_person") -> dict:
-      """Find recorded payment options for sellers of a product. Recorded options do not guarantee installment eligibility"""
-
+      """Find sellers with recorded payment options. This does not guarantee installment eligibility."""
       return find_payment_shops_data(dataset, product_id=product_id, limit=limit, channel=channel)
 
+   @tool
+   def update_shopping_preferences(
+      product_type: str | None = None,
+      budget_max_toman: int | None = None,
+      color: str | None = None,
+      usage: str | None = None,
+      brand: str | None = None,
+      radius_km: float | None = None,
+      payment_preference: str | None = None,
+      location_label: str | None = None,
+      clear_fields: list[str] | None = None,
+   ) -> dict:
+
+      """Save or update shopping preferences explicitly stated by the user. Use clear_fields to remove previously saved preferences."""
+      allowed_fields = {
+         "product_type",
+         "budget_max_toman",
+         "color",
+         "usage",
+         "brand",
+         "radius_km",
+         "payment_preference",
+         "location_label",
+      }
+
+      updates = {
+         "product_type": product_type,
+         "budget_max_toman": budget_max_toman,
+         "color": color,
+         "usage": usage,
+         "brand": brand,
+         "radius_km": radius_km,
+         "payment_preference": payment_preference,
+         "location_label": location_label,
+      }
+
+      for key in clear_fields or []:
+         if key in allowed_fields:
+            shopping_state[key] = None
+
+      for key, value in updates.items():
+         if value is not None:
+            shopping_state[key] = value
+
+      if shopping_state["budget_max_toman"] is not None:
+         if shopping_state["budget_max_toman"] <= 0:
+            return {"error": "بودجه باید بیشتر از صفر باشد."}
+
+      if shopping_state["radius_km"] is not None:
+         if not 0 < shopping_state["radius_km"] <= 50:
+            return {"error": "شعاع جست‌وجو باید بین ۰ تا ۵۰ کیلومتر باشد."}
+
+      return {"saved_preferences": shopping_state.copy()}
+
+   state_text = json.dumps(shopping_state, ensure_ascii=False)
+
+   return create_agent(
+      model=ChatOpenRouter(
+         model=os.environ["OPENROUTER_MODEL"],
+         api_key=os.environ["OPENROUTER_API_KEY"],
+         temperature=0.2,
+      ),
+      tools=[
+         search_products,
+         get_product_offers,
+         find_payment_shops,
+         update_shopping_preferences,
+      ],
+      system_prompt=(
+         SYSTEM_PROMPT
+         + "\n\nوضعیت فعلی ترجیحات خرید کاربر:\n"
+         + state_text
+         + MEMORY_PROMPT
+      ),
+   )
+
+
+def run_agent(dataset: dict, user_message: str, history: list | None = None, shopping_state: dict | None = None) -> dict:
    api_key = os.getenv("OPENROUTER_API_KEY")
    model_name = os.getenv("OPENROUTER_MODEL")
 
    if not api_key or not model_name:
       raise RuntimeError("OPENROUTER_API_KEY & OPENROUTER_MODEL must be configured")
 
-   model = ChatOpenRouter(
-      model=model_name,
-      api_key=api_key,
-      temperature=0.2,
-   )
-
-   return create_agent(
-      model=model,
-      tools=[
-         search_products,
-         get_product_offers,
-         find_payment_shops,
-      ],
-      system_prompt=SYSTEM_PROMPT,
-   )
-
-
-def run_agent(
-   dataset: dict[str, Any],
-   user_message: str, history: list | None = None) -> dict:
-   agent = build_agent(dataset)
+   state = dict(shopping_state or {})
+   agent = build_agent(dataset, state)
 
    messages = []
 
-   for item in (history or [])[-8:]:
-      if (
-         isinstance(item, dict)
-         and item.get("role") in {"user", "assistant"}
-         and isinstance(item.get("content"), str)
-      ):
+   for item in (history or [])[-20:]:
+      if (isinstance(item, dict) and item.get("role") in {"user", "assistant"} and isinstance(item.get("content"), str)):
          messages.append({
             "role": item["role"],
             "content": item["content"][:4000],
@@ -89,36 +146,39 @@ def run_agent(
       )
 
    except Exception as exc:
+      logger.exception("LangChain agent execution failed")
       raise RuntimeError("LangChain agent execution failed.") from exc
 
    final_messages = result.get("messages", [])
    reply = ""
-
-   for message in reversed(final_messages):
-      if getattr(message, "type", None) == "ai":
-         content = message.content
-         if isinstance(content, str):
-            reply = content
-         elif isinstance(content, list):
-            reply = "\n".join(
-               part["text"]
-               for part in content
-               if isinstance(part, dict) and isinstance(part.get("text"), str)
-            )
-
-         break
-
-
    tools_used = []
 
    for message in final_messages:
       if getattr(message, "type", None) == "ai":
          for call in getattr(message, "tool_calls", []):
-            name = call.get("name")
-            if name:
-               tools_used.append(name)
+            if call.get("name"):
+               tools_used.append(call["name"])
+
+   for message in reversed(final_messages):
+      if getattr(message, "type", None) == "ai":
+         content = message.content
+
+         if isinstance(content, str):
+            reply = content
+
+         elif isinstance(content, list):
+            reply = "\n".join(
+               part["text"]
+               for part in content
+               if isinstance(part, dict)
+               and isinstance(part.get("text"), str)
+            )
+
+         if reply:
+            break
 
    return {
-      "reply": reply or "نتونستم پاسخ مناسبی تولید کنم. لطفاً دوباره تلاش کن",
+      "reply": reply or "نتونستم پاسخ مناسبی تولید کنم",
       "tools_used": tools_used,
+      "shopping_state": state,
    }
