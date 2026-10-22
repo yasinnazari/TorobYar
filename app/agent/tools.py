@@ -209,7 +209,12 @@ def find_payment_shops(dataset: dict, product_id: str, limit=10, channel="in_per
 
 
 
-def calculate_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+def calculate_distance_km(
+   lat1: float,
+   lon1: float,
+   lat2: float,
+   lon2: float,
+) -> float:
    earth_radius_km = 6371.0
 
    dlat = radians(lat2 - lat1)
@@ -222,7 +227,9 @@ def calculate_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) ->
       * sin(dlon / 2) ** 2
    )
 
-   return earth_radius_km * 2 * atan2(sqrt(a), sqrt(1 - a),)
+   a = min(1.0, max(0.0, a))
+
+   return earth_radius_km * 2 * atan2(sqrt(a), sqrt(1 - a))
 
 
 def find_nearby_product_shops(

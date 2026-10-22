@@ -10,14 +10,16 @@ from app.agent.tools import (
    search_products as search_products_data,
    get_product_offers as get_product_offers_data,
    find_payment_shops as find_payment_shops_data,
+   find_nearby_product_shops as find_nearby_shops_data
 )
+
 
 load_dotenv('.env')
 
 logger = logging.getLogger(__name__)
 
 
-def build_agent(dataset: dict, shopping_state: dict):
+def build_agent(dataset : dict, shopping_state : dict, latitude, longitude, radius_km):
    @tool
    def search_products(query: str, limit: int = 5) -> dict:
       """Search products by Persian product title or keywords"""
@@ -34,6 +36,29 @@ def build_agent(dataset: dict, shopping_state: dict):
    def find_payment_shops(product_id: str, limit=10, channel="in_person") -> dict:
       """Find sellers with recorded payment options. This does not guarantee installment eligibility."""
       return find_payment_shops_data(dataset, product_id=product_id, limit=limit, channel=channel)
+
+
+   @tool
+   def find_nearby_product_shops(product_id: str, limit: int = 10) -> dict:
+      """Finds sellers of a product within the user’s nearby area"""
+
+      if latitude is None or longitude is None:
+         return {
+            "error": "location_required",
+            "message": "برای پیدا کردن فروشگاه نزدیک، موقعیت کاربر لازم است.",
+            "results": [],
+            "count": 0,
+         }
+
+      return find_nearby_shops_data(
+         dataset=dataset,
+         product_id=product_id,
+         user_lat=latitude,
+         user_lon=longitude,
+         radius_km=radius_km,
+         limit=limit,
+      )
+
 
    @tool
    def update_shopping_preferences(
@@ -98,6 +123,7 @@ def build_agent(dataset: dict, shopping_state: dict):
          temperature=0.2,
       ),
       tools=[
+         find_nearby_product_shops,
          search_products,
          get_product_offers,
          find_payment_shops,
@@ -113,7 +139,7 @@ def build_agent(dataset: dict, shopping_state: dict):
    )
 
 
-def run_agent(dataset: dict, user_message: str, history: list | None = None, shopping_state: dict | None = None) -> dict:
+def run_agent(dataset, user_message, history=None, shopping_state=None, latitude=None, longitude=None, radius_km=5.0):
    api_key = os.getenv("OPENROUTER_API_KEY")
    model_name = os.getenv("OPENROUTER_MODEL")
 
