@@ -67,6 +67,9 @@ def load_dataset() -> dict[str, pd.DataFrame]:
    print(f"Loaded {len(offers):} offers")
    print(f"Loaded {len(shops):} shops")
 
+   shops["lat"] = pd.to_numeric(shops["lat"], errors="coerce")
+   shops["lon"] = pd.to_numeric(shops["lon"], errors="coerce")
+
    return {
       "products": products,
       "offers": offers,

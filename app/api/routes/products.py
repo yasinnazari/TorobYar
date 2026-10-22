@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Query, Request
 import pandas as pd
+from fastapi import APIRouter, Query, Request
 
 router = APIRouter(
    prefix="/api/v1/products",
    tags=["Products"],
 )
+
 
 @router.get("/search")
 def search_products(request: Request, q: str = Query(min_length=1, max_length=100), limit: int = Query(default=10, ge=1, le=50)):

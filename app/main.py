@@ -16,10 +16,4 @@ app = FastAPI(
    lifespan=lifespan,
 )
 
-
-@app.get("/health")
-def health_check():
-   return {"status": "ok"}
-
-
 app.include_router(products_router)
