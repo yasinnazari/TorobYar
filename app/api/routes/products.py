@@ -1,5 +1,5 @@
 import pandas as pd
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Query
 
 router = APIRouter(
    prefix="/api/v1/products",
@@ -8,7 +8,7 @@ router = APIRouter(
 
 
 @router.get("/search")
-def search_products(request: Request, q: str = Query(min_length=1, max_length=100), limit: int = Query(default=10, ge=1, le=50)):
+def search_products(request, q=Query(min_length=1, max_length=100), limit=Query(default=10, ge=1, le=50)):
    products = request.app.state.dataset["products"]
 
    query = q.strip()
@@ -39,10 +39,7 @@ def search_products(request: Request, q: str = Query(min_length=1, max_length=10
       ],
    ].head(limit)
 
-   results = results.astype(object).where(
-      results.notna(),
-      None,
-   )
+   results = results.astype(object).where(results.notna(), None)
 
    records = results.to_dict(orient="records")
 
@@ -53,18 +50,13 @@ def search_products(request: Request, q: str = Query(min_length=1, max_length=10
    }
 
 @router.get("/{product_id}/offers")
-def get_product_offers(
-   request: Request,
-   product_id: str,
-   limit: int = Query(default=20, ge=1, le=100),
-):
+def get_product_offers(request, product_id, limit = Query(default=20, ge=1, le=100)):
    dataset = request.app.state.dataset
 
    products = dataset["products"]
    offers = dataset["offers"]
    shops = dataset["shops"]
 
-   # بررسی وجود محصول
    product_rows = products[
       products["product_id"] == product_id
    ]
@@ -76,10 +68,7 @@ def get_product_offers(
          "results": [],
       }
 
-   # پیدا کردن پیشنهادهای فروش این محصول
-   product_offers = offers[
-      offers["product_id"] == product_id
-   ].copy()
+   product_offers = offers[offers["product_id"] == product_id].copy()
 
    if product_offers.empty:
       return {
@@ -89,7 +78,6 @@ def get_product_offers(
          "results": [],
       }
 
-   # اتصال پیشنهادهای فروش به اطلاعات فروشگاه
    shop_columns = [
       "shop_id",
       "name",
@@ -106,14 +94,12 @@ def get_product_offers(
       how="left",
    )
 
-   # مرتب‌سازی از ارزان‌ترین پیشنهاد
    product_offers = product_offers.sort_values(
       "price_toman",
       ascending=True,
       na_position="last",
    )
 
-   # انتخاب فیلدهای موردنیاز API
    result_columns = [
       "offer_id",
       "shop_id",
@@ -131,7 +117,6 @@ def get_product_offers(
 
    results = product_offers[result_columns].head(limit)
 
-   # تبدیل مقادیر خالی به None برای JSON معتبر
    results = results.astype(object).where(
       results.notna(), None
    )
@@ -148,18 +133,13 @@ def get_product_offers(
    }
 
 
-@router.get("/search-with-offers")
-def search_products_with_offers(
-   request: Request,
-   q: str = Query(min_length=1, max_length=100),
-   limit: int = Query(default=10, ge=1, le=20),
-):
+@router.get("/offers/search")
+def search_products_with_offers(request, q=Query(min_length=1, max_length=100), limit = Query(default=10, ge=1, le=20)):
    dataset = request.app.state.dataset
    products = dataset["products"]
    offers = dataset["offers"]
    shops = dataset["shops"]
 
-   # جست‌وجوی عنوان محصول
    mask = products["persian_title"].str.contains(
       q.strip(),
       case=False,
@@ -178,12 +158,8 @@ def search_products_with_offers(
 
    product_ids = matches["product_id"].tolist()
 
-   # گرفتن پیشنهادهای فروش همین محصولات
-   matched_offers = offers[
-      offers["product_id"].isin(product_ids)
-   ].copy()
+   matched_offers = offers[offers["product_id"].isin(product_ids)].copy()
 
-   # اتصال اطلاعات فروشگاه
    shop_columns = [
       "shop_id",
       "name",
@@ -206,29 +182,27 @@ def search_products_with_offers(
       na_position="last",
    )
 
-   # تبدیل پیشنهادها به ساختار قابل‌نمایش برای هر محصول
    offers_by_product = {}
 
    for product_id, group in matched_offers.groupby("product_id"):
-      group = group.astype(object).where(
-         group.notna(), None
-      )
+      group = group.astype(object).where(group.notna(), None)
+
       offers_by_product[product_id] = (
          group[
-               [
-                  "offer_id",
-                  "shop_id",
-                  "seller_title",
-                  "price_toman",
-                  "warranty",
-                  "last_price_changed_at",
-                  "name",
-                  "address",
-                  "location_label",
-                  "lat",
-                  "lon",
-                  "payment_options",
-               ]
+            [
+               "offer_id",
+               "shop_id",
+               "seller_title",
+               "price_toman",
+               "warranty",
+               "last_price_changed_at",
+               "name",
+               "address",
+               "location_label",
+               "lat",
+               "lon",
+               "payment_options",
+            ]
          ]
          .head(5)
          .to_dict(orient="records")
