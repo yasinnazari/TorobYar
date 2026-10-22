@@ -106,12 +106,13 @@ def build_agent(dataset: dict, shopping_state: dict):
          find_payment_shops,
          update_shopping_preferences,
       ],
-      system_prompt=(
+      system_prompt = (
          SYSTEM_PROMPT
+         + "\n\n"
+         + MEMORY_PROMPT
          + "\n\nوضعیت فعلی ترجیحات خرید کاربر:\n"
          + state_text
-         + MEMORY_PROMPT
-      ),
+      )
    )
 
 
