@@ -7,11 +7,7 @@ from app.services.product_service import search_products_in_dataset
 def search_products(dataset, query, limit=5):
    products = dataset["products"]
 
-   return search_products_in_dataset(
-      products=products,
-      query=query,
-      limit=limit,
-   )
+   return search_products_in_dataset(products=products, query=query, limit=limit)
 
 
 def get_product_offers(dataset: dict, product_id: str, limit=5) -> dict:
