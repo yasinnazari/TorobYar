@@ -55,6 +55,9 @@ def chat(request: Request, body: ChatRequest):
          "reply": result["reply"],
          "tools_used": result["tools_used"],
          "shopping_state": result["shopping_state"],
+         "products": result.get("products", []),
+         "offers": result.get("offers", []),
+         "shops": result.get("shops", []),
       }
 
    except RuntimeError:
