@@ -1,6 +1,6 @@
-import re
+import os
 import json
-import unicodedata
+import requests
 import pandas as pd
 from math import radians, sin, cos, sqrt, atan2
 from app.services.product_service import search_products_in_dataset
@@ -332,26 +332,11 @@ def find_nearby_product_shops(
    }
 
 
-# def normalize_fa(text: str) -> str:
-#    text = unicodedata.normalize("NFKC", str(text or ""))
-#    text = text.replace("ي", "ی").replace("ك", "ک")
-#    text = text.replace("\u200c", " ")
-#    text = re.sub(r"\s+", " ", text)
-#    return text.strip().lower()
+def find_similar_products(product_id: str, limit: int = 10) -> dict:
+   base_url = os.getenv("API_BASE_URL", "http://localhost:8000")
+   url = f"{base_url}/products/{product_id}/similar"
 
+   response = requests.get(url, params={"limit": limit}, timeout=15)
+   response.raise_for_status()
 
-# def is_relevant_product(title: str, query: str) -> bool:
-#    title = normalize_fa(title)
-#    query = normalize_fa(query)
-
-#    generic_words = {
-#       "میخوام", "میخوام بخرم", "خرید", "قیمت",
-#       "لطفا", "برای", "مناسب", "اصل",
-#    }
-
-#    tokens = [token for token in re.findall(r"[\w]+", query) if token not in generic_words]
-
-#    if not tokens:
-#       return True
-
-#    return all(token in title for token in tokens)
+   return response.json()

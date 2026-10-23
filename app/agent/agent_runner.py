@@ -24,31 +24,30 @@ logger = logging.getLogger(__name__)
 def build_agent(dataset : dict, shopping_state : dict, latitude, longitude, radius_km):
    @tool
    def get_similar_products(product_id: str) -> dict:
-      """Find products similar to an existing product ID. Use this only after the user agrees to see alternatives"""
+      """Find similar products for a given product ID."""
 
-      return find_similar_products_data(dataset=dataset, product_id=product_id, limit=10)
-
+      return find_similar_products_data(product_id=product_id, limit=10)
 
    @tool
-   def search_products(query: str, limit: int = 5) -> dict:
+   def search_products(query: str, limit=5) -> dict:
       """Search products by Persian product title or keywords"""
 
       return search_products_data(dataset, query=query, limit=limit)
 
    @tool
-   def get_product_offers(product_id: str, limit: int = 5) -> dict:
+   def get_product_offers(product_id: str, limit=5) -> dict:
       """Get recorded prices and shop details for a product ID returned by product search"""
 
-      return get_product_offers_data(dataset, product_id=product_id, limit=limit)
+      return get_product_offers_data(dataset, product_id, limit)
 
    @tool
    def find_payment_shops(product_id: str, limit=10, channel="in_person") -> dict:
       """Find sellers with recorded payment options. This does not guarantee installment eligibility."""
-      return find_payment_shops_data(dataset, product_id=product_id, limit=limit, channel=channel)
+      return find_payment_shops_data(dataset, product_id, limit, channel)
 
 
    @tool
-   def find_nearby_product_shops(product_id: str, limit: int = 10) -> dict:
+   def find_nearby_product_shops(product_id: str, limit=10) -> dict:
       """Finds sellers of a product within the user’s nearby area"""
 
       if latitude is None or longitude is None:
@@ -59,14 +58,7 @@ def build_agent(dataset : dict, shopping_state : dict, latitude, longitude, radi
             "count": 0,
          }
 
-      return find_nearby_shops_data(
-         dataset=dataset,
-         product_id=product_id,
-         user_lat=latitude,
-         user_lon=longitude,
-         radius_km=radius_km,
-         limit=limit,
-      )
+      return find_nearby_shops_data(dataset, product_id, latitude, longitude, radius_km, limit)
 
 
    @tool
@@ -131,6 +123,7 @@ def build_agent(dataset : dict, shopping_state : dict, latitude, longitude, radi
          api_key=os.environ["OPENROUTER_API_KEY"],
          temperature=0.2,
       ),
+
       tools=[
          get_similar_products,
          find_nearby_product_shops,
@@ -139,6 +132,7 @@ def build_agent(dataset : dict, shopping_state : dict, latitude, longitude, radi
          find_payment_shops,
          update_shopping_preferences,
       ],
+
       system_prompt = (
          SYSTEM_PROMPT
          + "\n\n"
