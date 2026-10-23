@@ -11,7 +11,8 @@ from app.agent.tools import (
    search_products as search_products_data,
    get_product_offers as get_product_offers_data,
    find_payment_shops as find_payment_shops_data,
-   find_nearby_product_shops as find_nearby_shops_data
+   find_nearby_product_shops as find_nearby_shops_data,
+   find_similar_products as find_similar_products_data
 )
 
 
@@ -21,6 +22,13 @@ logger = logging.getLogger(__name__)
 
 
 def build_agent(dataset : dict, shopping_state : dict, latitude, longitude, radius_km):
+   @tool
+   def get_similar_products(product_id: str) -> dict:
+      """Find products similar to an existing product ID. Use this only after the user agrees to see alternatives"""
+
+      return find_similar_products_data(dataset=dataset, product_id=product_id, limit=10)
+
+
    @tool
    def search_products(query: str, limit: int = 5) -> dict:
       """Search products by Persian product title or keywords"""
@@ -124,7 +132,7 @@ def build_agent(dataset : dict, shopping_state : dict, latitude, longitude, radi
          temperature=0.2,
       ),
       tools=[
-         
+         get_similar_products,
          find_nearby_product_shops,
          search_products,
          get_product_offers,
@@ -186,20 +194,20 @@ def get_tool_results(payload):
    return []
 
 
+
 def collect_structured_data(messages):
    data = {
       "products": [],
       "offers": [],
       "shops": [],
+      "similar_products": [],
    }
 
    for message in messages:
-      message_type = getattr(message, "type", None)
-      message_name = getattr(message, "name", "")
-
-      if message_type != "tool":
+      if getattr(message, "type", None) != "tool":
          continue
 
+      message_name = getattr(message, "name", "")
       payload = parse_tool_result(message)
       rows = get_tool_results(payload)
 
@@ -212,10 +220,14 @@ def collect_structured_data(messages):
       elif message_name == "find_nearby_product_shops":
          data["shops"].extend(rows)
 
+      elif message_name == "get_similar_products":
+         data["similar_products"].extend(rows)
+
    unique_keys = {
       "products": "product_id",
       "offers": "offer_id",
       "shops": "shop_id",
+      "similar_products": "product_id",
    }
 
    for category, key in unique_keys.items():
@@ -224,23 +236,24 @@ def collect_structured_data(messages):
 
       for row in data[category]:
          if not isinstance(row, dict):
-            continue
+               continue
 
          identifier = row.get(key)
 
          if identifier is None:
-            unique_rows.append(row)
-            continue
+               unique_rows.append(row)
+               continue
 
          identifier = str(identifier)
 
          if identifier not in seen:
-            seen.add(identifier)
-            unique_rows.append(row)
+               seen.add(identifier)
+               unique_rows.append(row)
 
       data[category] = unique_rows
 
    return data
+
 
 
 def run_agent(dataset, user_message, history=None, shopping_state=None, latitude=None, longitude=None, radius_km=5.0):
@@ -321,4 +334,5 @@ def run_agent(dataset, user_message, history=None, shopping_state=None, latitude
       "products": structured_data["products"],
       "offers": structured_data["offers"],
       "shops": structured_data["shops"],
+      "similar_products": structured_data["similar_products"],
    }
