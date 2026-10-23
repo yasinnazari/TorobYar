@@ -16,9 +16,9 @@ class ChatRequest(BaseModel):
    message: str = Field(min_length=1, max_length=2000)
    conversation_id: str | None = None
 
-   latitude: float | None = Field(default=None, ge=-90, le=90)
-   longitude: float | None = Field(default=None, ge=-180, le=180)
-   radius_km: float = Field(default=5.0, gt=0, le=50)
+   latitude | None = Field(default=None, ge=-90, le=90)
+   longitude | None = Field(default=None, ge=-180, le=180)
+   radius_km = Field(default=5.0, gt=0, le=50)
 
 
 @router.post("/chat")
@@ -38,6 +38,9 @@ def chat(request: Request, body: ChatRequest):
          user_message=message,
          history=conversation["messages"],
          shopping_state=conversation["shopping_state"],
+         latitude=body.latitude,
+         longitude=body.longitude,
+         radius_km=body.radius_km,
       )
 
       updated_messages = conversation["messages"] + [
