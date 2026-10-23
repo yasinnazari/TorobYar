@@ -5,7 +5,7 @@ import logging
 from dotenv import load_dotenv
 from langchain.tools import tool
 from langchain.agents import create_agent
-from langchain_openrouter import ChatOpenRouter
+from langchain_openai import ChatOpenAI
 from app.agent.prompts import SYSTEM_PROMPT, MEMORY_PROMPT
 from app.agent.tools import (
    search_products as search_products_data,
@@ -118,12 +118,12 @@ def build_agent(dataset : dict, shopping_state : dict, latitude, longitude, radi
    state_text = json.dumps(shopping_state, ensure_ascii=False)
 
    return create_agent(
-      model=ChatOpenRouter(
-         model=os.environ["OPENROUTER_MODEL"],
-         api_key=os.environ["OPENROUTER_API_KEY"],
-         temperature=0.2,
+      model=ChatOpenAI(
+         model=os.environ["BOXAPI_MODEL"],
+         api_key=os.environ["BOXAPI_API_KEY"],
+         base_url="https://ai.boxapi.ir/ai/v1",
+         use_responses_api=False,
       ),
-
       tools=[
          get_similar_products,
          find_nearby_product_shops,
@@ -132,14 +132,13 @@ def build_agent(dataset : dict, shopping_state : dict, latitude, longitude, radi
          find_payment_shops,
          update_shopping_preferences,
       ],
-
-      system_prompt = (
+      system_prompt=(
          SYSTEM_PROMPT
          + "\n\n"
          + MEMORY_PROMPT
          + "\n\nوضعیت فعلی ترجیحات خرید کاربر:\n"
          + state_text
-      )
+      ),
    )
 
 
@@ -251,11 +250,11 @@ def collect_structured_data(messages):
 
 
 def run_agent(dataset, user_message, history=None, shopping_state=None, latitude=None, longitude=None, radius_km=5.0):
-   api_key = os.getenv("OPENROUTER_API_KEY")
-   model_name = os.getenv("OPENROUTER_MODEL")
+   api_key = os.getenv("BOXAPI_API_KEY")
+   model_name = os.getenv("BOXAPI_MODEL")
 
    if not api_key or not model_name:
-      raise RuntimeError("OPENROUTER_API_KEY & OPENROUTER_MODEL must be configured")
+      raise RuntimeError("BOXAPI_API_KEY & BOXAPI_MODEL must be configured")
 
    state = dict(shopping_state or {})
 
