@@ -73,8 +73,8 @@ def build_agent(dataset : dict, shopping_state : dict, latitude, longitude, radi
       location_label: str | None = None,
       clear_fields: list[str] | None = None,
    ) -> dict:
-
       """Save or update shopping preferences explicitly stated by the user. Use clear_fields to remove previously saved preferences."""
+
       allowed_fields = {
          "product_type",
          "budget_max_toman",
@@ -242,7 +242,6 @@ def collect_structured_data(messages):
    return data
 
 
-
 def run_agent(dataset, user_message, history=None, shopping_state=None, latitude=None, longitude=None, radius_km=5.0):
    api_key = os.getenv("OPENROUTER_API_KEY")
    model_name = os.getenv("OPENROUTER_MODEL")
@@ -271,71 +270,54 @@ def run_agent(dataset, user_message, history=None, shopping_state=None, latitude
    try:
       result = agent.invoke(
          {"messages": messages},
-         config={"recursion_limit": 30},
+         config={"recursion_limit": 15}
       )
 
-   except Exception as exc:
+   except Exception:
       logger.exception("LangChain agent execution failed")
       raise
 
-   final_messages = result.get("messages", [])
-
-   reply = ""
+   agent_messages = result.get("messages", [])
+   structured_data = collect_structured_data(agent_messages)
    tools_used = []
+   reply = ""
 
-   products = []
-   offers = []
-   shops = []
+   for message in agent_messages:
+      message_type = getattr(message, "type", None)
 
-   for message in final_messages:
       logger.info(
          "Agent message type=%s name=%s content=%s",
-         getattr(message, "type", None),
+         message_type,
          getattr(message, "name", None),
-         str(getattr(message, "content", ""))[:1500],
+         str(getattr(message, "content", ""))[:1000],
       )
-      if getattr(message, "type", None) == "ai":
+
+      if message_type == "ai":
          for call in getattr(message, "tool_calls", []):
-            if call.get("name"):
-               tools_used.append(call["name"])
+            name = call.get("name")
+            if name and name not in tools_used:
+               tools_used.append(name)
 
-      if getattr(message, "type", None) != "tool":
-         continue
+         content = getattr(message, "content", "")
 
-      tool_name = getattr(message, "name", "")
-      payload = parse_tool_result(message)
-      rows = get_tool_results(payload)
-
-      if tool_name == "search_products":
-         products = rows
-
-      elif tool_name == "get_product_offers":
-         offers = rows
-
-      elif tool_name in {"find_payment_shops", "find_nearby_product_shops"}:
-         shops = rows
-
-
-   for message in reversed(final_messages):
-      if getattr(message, "type", None) == "ai":
-         content = message.content
-
-         if isinstance(content, str):
+         if isinstance(content, str) and content.strip():
             reply = content
 
          elif isinstance(content, list):
-            reply = "\n".join(
+            text_parts = [
                part["text"]
                for part in content
                if isinstance(part, dict)
                and isinstance(part.get("text"), str)
-            )
-
-         if reply:
-            break
+            ]
+            if text_parts:
+               reply = "\n".join(text_parts)
 
    return {
-      "reply": reply or "نتونستم پاسخ مناسبی تولید کنم",
+      "reply": reply,
       "tools_used": tools_used,
       "shopping_state": state,
+      "products": structured_data["products"],
+      "offers": structured_data["offers"],
+      "shops": structured_data["shops"],
    }
