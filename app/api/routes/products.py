@@ -1,11 +1,61 @@
 import pandas as pd
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query
 from app.services.product_service import search_products_in_dataset
 
 router = APIRouter(
    prefix="/api/v1/products",
    tags=["Products"],
 )
+
+
+@router.get("/{product_id}/similar")
+def get_similar_products(product_id, request, limit: int = Query(default=10, ge=1, le=30)):
+   products = request.app.state.dataset["products"]
+
+   product_rows = products[
+      products["product_id"].astype(str) == product_id
+   ]
+
+   if product_rows.empty:
+      raise HTTPException(status_code=404, detail="محصول موردنظر پیدا نشد")
+
+   product = product_rows.iloc[0]
+   category = str(product.get("category_name") or "")
+   brand = str(product.get("brand_name") or "")
+   model = str(product.get("model") or "")
+
+   candidates = products[products["category_name"].fillna("").astype(str) == category].copy()
+
+   candidates = candidates[candidates["product_id"].astype(str) != product_id]
+
+   if candidates.empty:
+      return {
+         "product_id": product_id,
+         "count": 0,
+         "results": [],
+      }
+
+   output_columns = [
+      col for col in [
+         "product_id",
+         "persian_title",
+         "brand_name",
+         "category_name",
+         "model",
+         "image_urls",
+      ]
+      if col in candidates.columns
+   ]
+
+   results = candidates[output_columns].head(limit)
+   results = results.astype(object).where(results.notna(), None)
+
+   return {
+      "product_id": product_id,
+      "product_title": str(product.get("persian_title") or ""),
+      "count": len(results),
+      "results": results.to_dict(orient="records"),
+   }
 
 
 @router.get("/search")
