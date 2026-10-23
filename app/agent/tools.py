@@ -1,4 +1,6 @@
+import re
 import json
+import unicodedata
 import pandas as pd
 from math import radians, sin, cos, sqrt, atan2
 from app.services.product_service import search_products_in_dataset
@@ -232,6 +234,8 @@ def calculate_distance_km(
    return earth_radius_km * 2 * atan2(sqrt(a), sqrt(1 - a))
 
 
+# ------------------------------------------
+
 def find_nearby_product_shops(
    dataset: dict, product_id: str, user_lat: float, user_lon: float, radius_km: float = 5.0, limit: int = 10) -> dict:
 
@@ -330,3 +334,28 @@ def find_nearby_product_shops(
       "price_is_live": False,
       "distance_type": "straight_line",
    }
+
+
+def normalize_fa(text: str) -> str:
+   text = unicodedata.normalize("NFKC", str(text or ""))
+   text = text.replace("ي", "ی").replace("ك", "ک")
+   text = text.replace("\u200c", " ")
+   text = re.sub(r"\s+", " ", text)
+   return text.strip().lower()
+
+
+def is_relevant_product(title: str, query: str) -> bool:
+   title = normalize_fa(title)
+   query = normalize_fa(query)
+
+   generic_words = {
+      "میخوام", "میخوام بخرم", "خرید", "قیمت",
+      "لطفا", "برای", "مناسب", "اصل",
+   }
+
+   tokens = [token for token in re.findall(r"[\w]+", query) if token not in generic_words]
+
+   if not tokens:
+      return True
+
+   return all(token in title for token in tokens)
