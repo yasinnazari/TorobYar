@@ -332,26 +332,26 @@ def find_nearby_product_shops(
    }
 
 
-def normalize_fa(text: str) -> str:
-   text = unicodedata.normalize("NFKC", str(text or ""))
-   text = text.replace("ي", "ی").replace("ك", "ک")
-   text = text.replace("\u200c", " ")
-   text = re.sub(r"\s+", " ", text)
-   return text.strip().lower()
+# def normalize_fa(text: str) -> str:
+#    text = unicodedata.normalize("NFKC", str(text or ""))
+#    text = text.replace("ي", "ی").replace("ك", "ک")
+#    text = text.replace("\u200c", " ")
+#    text = re.sub(r"\s+", " ", text)
+#    return text.strip().lower()
 
 
-def is_relevant_product(title: str, query: str) -> bool:
-   title = normalize_fa(title)
-   query = normalize_fa(query)
+# def is_relevant_product(title: str, query: str) -> bool:
+#    title = normalize_fa(title)
+#    query = normalize_fa(query)
 
-   generic_words = {
-      "میخوام", "میخوام بخرم", "خرید", "قیمت",
-      "لطفا", "برای", "مناسب", "اصل",
-   }
+#    generic_words = {
+#       "میخوام", "میخوام بخرم", "خرید", "قیمت",
+#       "لطفا", "برای", "مناسب", "اصل",
+#    }
 
-   tokens = [token for token in re.findall(r"[\w]+", query) if token not in generic_words]
+#    tokens = [token for token in re.findall(r"[\w]+", query) if token not in generic_words]
 
-   if not tokens:
-      return True
+#    if not tokens:
+#       return True
 
-   return all(token in title for token in tokens)
+#    return all(token in title for token in tokens)

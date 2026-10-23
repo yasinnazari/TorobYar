@@ -13,14 +13,15 @@ STOP_WORDS = {
 }
 
 TOKEN_ALIASES = {
-   "مردونه": ["مردونه", "مردانه"],
-   "مردانه": ["مردانه", "مردونه"],
-   "زنونه": ["زنونه", "زنانه"],
-   "زنانه": ["زنانه", "زنونه"],
-   "بچگونه": ["بچگونه", "بچه گانه", "بچگانه"],
-   "کتونی": ["کتونی", "کفش ورزشی", "کفش اسپرت"],
-   "اسپرت": ["اسپرت", "ورزشی"],
-   "موبایل": ["موبایل", "گوشی"],
+   "مردونه": ["مردونه", "مردانه", "مردا", "آقایان", "آقا"],
+   "مردانه": ["مردانه", "مردونه", "مردا", "آقایان", "آقا"],
+   "زنونه": ["زنونه", "زنانه", "زنا", "خانم‌ها", "خانمها", "خانم"],
+   "زنانه": ["زنانه", "زنونه", "زنا", "خانم‌ها", "خانمها", "خانم"],
+   "بچگونه": ["بچگونه", "بچه گانه", "بچگانه", "بچه‌گانه", "کودک", "کودکانه", "بچه"],
+   "بچه گانه": ["بچگونه", "بچه گانه", "بچگانه", "بچه‌گانه", "کودک", "کودکانه", "بچه"],
+   "بچگانه": ["بچگونه", "بچه گانه", "بچگانه", "بچه‌گانه", "کودک", "کودکانه", "بچه"],
+   "کودک": ["بچگونه", "بچه گانه", "بچگانه", "بچه‌گانه", "کودک", "کودکانه", "بچه"],
+   "کودکانه": ["بچگونه", "بچه گانه", "بچگانه", "بچه‌گانه", "کودک", "کودکانه", "بچه"],
 }
 
 
@@ -56,9 +57,7 @@ def clean_search_query(query):
    tokens = [
       token for token in tokens
       if token not in STOP_WORDS
-      and not re.fullmatch(r"[\d۰-۹٠-٩,.]+", token)
    ]
-
    return tokens
 
 
@@ -97,6 +96,7 @@ def prepare_product_search(products):
    return products
 
 
+
 def search_products_in_dataset(products, query, limit=10):
    query = str(query or "").strip()
 
@@ -107,6 +107,8 @@ def search_products_in_dataset(products, query, limit=10):
          "total_matches": 0,
          "search_mode": "empty",
          "results": [],
+         "similar_results": [],
+         "needs_clarification": False,
       }
 
    products = prepare_product_search(products)
@@ -119,6 +121,8 @@ def search_products_in_dataset(products, query, limit=10):
          "total_matches": 0,
          "search_mode": "empty",
          "results": [],
+         "similar_results": [],
+         "needs_clarification": False,
       }
 
    fields = {
@@ -137,17 +141,20 @@ def search_products_in_dataset(products, query, limit=10):
       term_matched = pd.Series(False, index=products.index)
 
       for column, weight in fields.items():
+         if column not in products.columns:
+            continue
+
          field_matched = pd.Series(False, index=products.index)
 
          for alias in aliases:
-               alias = normalize_text(alias)
+            alias = normalize_text(alias)
 
-               if alias:
-                  field_matched |= products[column].str.contains(
-                     re.escape(alias),
-                     regex=True,
-                     na=False,
-                  )
+            if alias:
+               field_matched |= products[column].str.contains(
+                  re.escape(alias),
+                  regex=True,
+                  na=False,
+               )
 
          scores += field_matched.astype("int32") * weight
          term_matched |= field_matched
@@ -155,29 +162,32 @@ def search_products_in_dataset(products, query, limit=10):
       matched_terms += term_matched.astype("int32")
 
    normalized_query = normalize_text(query)
+
    scores += (
       products["_search_title"]
       .str.contains(re.escape(normalized_query), regex=True, na=False)
       .astype("int32") * 5
    )
 
-   minimum_matches = max(1, len(tokens) - 1)
-   mask = matched_terms >= minimum_matches
-   search_mode = "ranked"
+   minimum_matches = len(tokens)
+   exact_mask = matched_terms >= minimum_matches
 
-   if not mask.any():
-      mask = matched_terms >= 1
-      search_mode = "relaxed"
-
-   ranked = products.loc[mask].copy()
+   ranked = products.loc[exact_mask].copy()
+   search_mode = "exact"
 
    if ranked.empty:
       return {
          "query": query,
          "count": 0,
          "total_matches": 0,
-         "search_mode": "no_results",
+         "search_mode": "no_exact_results",
          "results": [],
+         "similar_results": [],
+         "needs_clarification": True,
+         "clarification_message": (
+            "محصول دقیقی پیدا نکردم. "
+            "می‌خواهی محصولات مشابه را هم بررسی کنم؟"
+         ),
       }
 
    ranked["_match_score"] = scores.loc[ranked.index]
@@ -192,7 +202,8 @@ def search_products_in_dataset(products, query, limit=10):
    total_matches = len(ranked)
 
    output_columns = [
-      column for column in [
+      column
+      for column in [
          "product_id",
          "persian_title",
          "brand_name",
@@ -203,7 +214,7 @@ def search_products_in_dataset(products, query, limit=10):
       if column in ranked.columns
    ]
 
-   results = ranked.head(limit)[output_columns].copy()
+   results = ranked.head(max(1, min(limit, 50)))[output_columns].copy()
    results = results.astype(object).where(results.notna(), None)
 
    return {
@@ -212,4 +223,6 @@ def search_products_in_dataset(products, query, limit=10):
       "total_matches": total_matches,
       "search_mode": search_mode,
       "results": results.to_dict(orient="records"),
+      "similar_results": [],
+      "needs_clarification": False,
    }
