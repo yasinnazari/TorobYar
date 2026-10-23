@@ -297,9 +297,7 @@ def find_nearby_product_shops(
       axis=1,
    )
 
-   results = results[
-      results["distance_km"] <= max(0, radius_km)
-   ]
+   results = results[results["distance_km"] <= max(0, radius_km)]
 
    results = results.sort_values(
       ["distance_km", "price_toman"],
@@ -307,9 +305,7 @@ def find_nearby_product_shops(
       na_position="last",
    ).head(max(1, min(limit, 50)))
 
-   results = results.astype(object).where(
-      results.notna(), None
-   )
+   results = results.astype(object).where(results.notna(), None)
 
    return {
       "product_id": product_id,
