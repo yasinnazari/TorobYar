@@ -171,6 +171,7 @@ def parse_tool_result(message):
          result = ast.literal_eval(content)
          if isinstance(result, dict):
             return result
+
       except (ValueError, SyntaxError):
          pass
 
@@ -187,7 +188,6 @@ def get_tool_results(payload):
          return value
 
    return []
-
 
 
 def collect_structured_data(messages):
@@ -248,7 +248,6 @@ def collect_structured_data(messages):
       data[category] = unique_rows
 
    return data
-
 
 
 def run_agent(dataset, user_message, history=None, shopping_state=None, latitude=None, longitude=None, radius_km=5.0):
