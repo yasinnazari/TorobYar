@@ -124,6 +124,7 @@ def build_agent(dataset : dict, shopping_state : dict, latitude, longitude, radi
          temperature=0.2,
       ),
       tools=[
+         
          find_nearby_product_shops,
          search_products,
          get_product_offers,
