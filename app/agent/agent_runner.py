@@ -163,6 +163,7 @@ def parse_tool_result(message):
          result = json.loads(content)
          if isinstance(result, dict):
             return result
+
       except (json.JSONDecodeError, TypeError):
          pass
 
