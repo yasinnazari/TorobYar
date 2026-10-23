@@ -1,4 +1,5 @@
 import os
+import ast
 import json
 import logging
 from dotenv import load_dotenv
@@ -139,6 +140,51 @@ def build_agent(dataset : dict, shopping_state : dict, latitude, longitude, radi
    )
 
 
+def parse_tool_result(message):
+   content = getattr(message, "content", None)
+
+   if isinstance(content, dict):
+      return content
+
+   if isinstance(content, list):
+      content = "\n".join(
+         part["text"]
+         for part in content
+         if isinstance(part, dict)
+         and isinstance(part.get("text"), str)
+      )
+
+   if isinstance(content, str):
+      try:
+         result = json.loads(content)
+         if isinstance(result, dict):
+            return result
+      except (json.JSONDecodeError, TypeError):
+         pass
+
+      try:
+         result = ast.literal_eval(content)
+         if isinstance(result, dict):
+            return result
+      except (ValueError, SyntaxError):
+         pass
+
+   return {}
+
+
+def get_tool_results(payload):
+   if not isinstance(payload, dict):
+      return []
+
+   for key in ("results", "products", "offers", "shops"):
+      value = payload.get(key)
+
+      if isinstance(value, list):
+         return value
+
+   return []
+
+
 def run_agent(dataset, user_message, history=None, shopping_state=None, latitude=None, longitude=None, radius_km=5.0):
    api_key = os.getenv("OPENROUTER_API_KEY")
    model_name = os.getenv("OPENROUTER_MODEL")
@@ -175,14 +221,36 @@ def run_agent(dataset, user_message, history=None, shopping_state=None, latitude
       raise RuntimeError("LangChain agent execution failed.") from exc
 
    final_messages = result.get("messages", [])
+
    reply = ""
    tools_used = []
+
+   products = []
+   offers = []
+   shops = []
 
    for message in final_messages:
       if getattr(message, "type", None) == "ai":
          for call in getattr(message, "tool_calls", []):
             if call.get("name"):
                tools_used.append(call["name"])
+
+      if getattr(message, "type", None) != "tool":
+         continue
+
+      tool_name = getattr(message, "name", "")
+      payload = parse_tool_result(message)
+      rows = get_tool_results(payload)
+
+      if tool_name == "search_products":
+         products = rows
+
+      elif tool_name == "get_product_offers":
+         offers = rows
+
+      elif tool_name in {"find_payment_shops", "find_nearby_product_shops"}:
+         shops = rows
+
 
    for message in reversed(final_messages):
       if getattr(message, "type", None) == "ai":
