@@ -9,7 +9,7 @@ router = APIRouter(
 
 
 @router.get("/search")
-def search_products(request: Request, q=Query(min_length=1, max_length=100), limit=Query(default=10, ge=1, le=50)):
+def search_products(request, q=Query(min_length=1, max_length=100), limit=Query(default=10, ge=1, le=50)):
    products = request.app.state.dataset["products"]
 
    return search_products_in_dataset(products=products, query=q, limit=limit)

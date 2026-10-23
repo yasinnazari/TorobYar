@@ -141,18 +141,19 @@ def build_agent(dataset : dict, shopping_state : dict, latitude, longitude, radi
 
 
 def parse_tool_result(message):
-   content = getattr(message, "content", None)
+   content = getattr(message, "content", message)
 
    if isinstance(content, dict):
       return content
 
    if isinstance(content, list):
-      content = "\n".join(
+      text_parts = [
          part["text"]
          for part in content
          if isinstance(part, dict)
          and isinstance(part.get("text"), str)
-      )
+      ]
+      content = "\n".join(text_parts)
 
    if isinstance(content, str):
       try:
@@ -178,11 +179,68 @@ def get_tool_results(payload):
 
    for key in ("results", "products", "offers", "shops"):
       value = payload.get(key)
-
       if isinstance(value, list):
          return value
 
    return []
+
+
+def collect_structured_data(messages):
+   data = {
+      "products": [],
+      "offers": [],
+      "shops": [],
+   }
+
+   for message in messages:
+      message_type = getattr(message, "type", None)
+      message_name = getattr(message, "name", "")
+
+      if message_type != "tool":
+         continue
+
+      payload = parse_tool_result(message)
+      rows = get_tool_results(payload)
+
+      if message_name == "search_products":
+         data["products"].extend(rows)
+
+      elif message_name == "get_product_offers":
+         data["offers"].extend(rows)
+
+      elif message_name == "find_nearby_product_shops":
+         data["shops"].extend(rows)
+
+   unique_keys = {
+      "products": "product_id",
+      "offers": "offer_id",
+      "shops": "shop_id",
+   }
+
+   for category, key in unique_keys.items():
+      unique_rows = []
+      seen = set()
+
+      for row in data[category]:
+         if not isinstance(row, dict):
+            continue
+
+         identifier = row.get(key)
+
+         if identifier is None:
+            unique_rows.append(row)
+            continue
+
+         identifier = str(identifier)
+
+         if identifier not in seen:
+            seen.add(identifier)
+            unique_rows.append(row)
+
+      data[category] = unique_rows
+
+   return data
+
 
 
 def run_agent(dataset, user_message, history=None, shopping_state=None, latitude=None, longitude=None, radius_km=5.0):
@@ -213,12 +271,12 @@ def run_agent(dataset, user_message, history=None, shopping_state=None, latitude
    try:
       result = agent.invoke(
          {"messages": messages},
-         config={"recursion_limit": 15},
+         config={"recursion_limit": 30},
       )
 
    except Exception as exc:
       logger.exception("LangChain agent execution failed")
-      raise RuntimeError("LangChain agent execution failed.") from exc
+      raise
 
    final_messages = result.get("messages", [])
 
@@ -230,6 +288,12 @@ def run_agent(dataset, user_message, history=None, shopping_state=None, latitude
    shops = []
 
    for message in final_messages:
+      logger.info(
+         "Agent message type=%s name=%s content=%s",
+         getattr(message, "type", None),
+         getattr(message, "name", None),
+         str(getattr(message, "content", ""))[:1500],
+      )
       if getattr(message, "type", None) == "ai":
          for call in getattr(message, "tool_calls", []):
             if call.get("name"):
