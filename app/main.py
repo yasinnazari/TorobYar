@@ -11,11 +11,13 @@ async def lifespan(app: FastAPI):
    app.state.dataset = load_dataset()
    yield
 
+
 app = FastAPI(
    title="TorobYar | Dastyar Kharid Shoma",
    version="0.0.1",
    lifespan=lifespan,
 )
+
 
 app.include_router(products_router)
 app.include_router(assistant_router)
