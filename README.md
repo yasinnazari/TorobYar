@@ -18,16 +18,9 @@ A simple AI agent that uses OpenRouter chat completions API with native tool cal
 3. Run the agent:
    ```bash
    python -m first_agent.main
+   or
+   uvicorn app.main:app --reload
    ```
 
-## Usage
 
-The agent can handle queries that require the `calculate_sum` tool. The model will decide when to call the tool and will use the result to generate its final response.
-
-## Architecture
-
-- Uses OpenAI-compatible SDK with OpenRouter
-- Native tool calling with `calculate_sum` function
-- Maximum 5 model/tool interaction rounds
-- API key from environment variable only
-- Error handling and logging
+**1. Create datasets folder and copy torob-datasets file and paste in datasets folder**
